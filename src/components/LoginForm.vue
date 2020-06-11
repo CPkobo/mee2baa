@@ -68,6 +68,9 @@
         <button class="button is-success" @click.prevent.stop="superEnter">
           {{ buttonDisp }}
         </button>
+        <button class="button is-success" @click.prevent.stop="ipEnter">
+          Im an interpreter
+        </button>
       </div>
     </div>
   </form>
@@ -86,11 +89,11 @@ export default {
   data () {
     return {
       result: 'Please input your meeting-ID, name and password for login',
-      meetingID: 'test',
-      userName: 'hitsuji',
-      password: 'meme',
+      meetingID: '',
+      userName: '',
+      password: '',
       language: 'Japanese',
-      languageOptions: ['Japanese', 'Chinese', 'Original'],
+      languageOptions: ['Japanese', 'Chinese'],
       foundAudioInput: 'None',
       foundVideoInput: 'None',
       canOpen: true,
@@ -103,41 +106,45 @@ export default {
       video: false,
       audio: false
     }
-    if (process.client) {
-      navigator.mediaDevices.enumerateDevices().then((devs) => {
-        for (const dev of devs) {
-          if (dev.kind === 'audioinput') {
-            this.foundAudioInput = 'OK'
-            avGetter_.audio = true
-          } else if (dev.kind === 'videoinput') {
-            this.foundVideoInput = 'OK'
-            avGetter_.video = true
-          }
+    navigator.mediaDevices.enumerateDevices().then((devs) => {
+      for (const dev of devs) {
+        if (dev.kind === 'audioinput') {
+          this.foundAudioInput = 'OK'
+          avGetter_.audio = true
+        } else if (dev.kind === 'videoinput') {
+          this.foundVideoInput = 'OK'
+          avGetter_.video = true
         }
-        this.$store.commit('setAvGetter', avGetter_)
-        switch (this.reqDevs) {
-          case 'av':
-            this.canOpen = !(this.foundVideoInput === 'OK' && this.foundAudioInput === 'OK')
-            break
+      }
+      this.$store.commit('setAvGetter', avGetter_)
+      switch (this.reqDevs) {
+        case 'av':
+          this.canOpen = !(this.foundVideoInput === 'OK' && this.foundAudioInput === 'OK')
+          break
 
-          case 'a':
-            this.canOpen = !(this.foundAudioInput === 'OK')
-            break
+        case 'a':
+          this.canOpen = !(this.foundAudioInput === 'OK')
+          break
 
-          case 'v':
-            this.canOpen = !(this.foundVideoInput === 'OK')
-            break
+        case 'v':
+          this.canOpen = !(this.foundVideoInput === 'OK')
+          break
 
-          default:
-            this.canOpen = false
-            break
-        }
-      })
-    }
+        default:
+          this.canOpen = false
+          break
+      }
+    })
   },
   methods: {
     superEnter () {
-
+      const myLang = this.language === this.languageOptions[0] ? 'L1' : 'L2'
+      this.$store.commit('setPeerName', `${myLang}-${this.userName}`)
+      this.$emit('apikey-ok');
+    },
+    ipEnter () {
+      this.$store.commit('setPeerName', `IP-${this.userName}`)
+      this.$emit('apikey-ok');
     },
     getApiKey () {
       const self = this
@@ -158,17 +165,9 @@ export default {
           self.buttonDisp = ' Please wait...'
           res.text().then((t) => {
             self.$store.commit('setApiKey', t)
-            // const peer = new Peer({
-            //   key: t,
-            //   debug: 1
-            // })
-            // peer.on('open', () => {
-            //   self.$store.commit('setPeer', peer)
-            //   self.$router.push('./room')
-            // })
-            setTimeout(() => {
-              self.$router.push('./room')
-            }, 1000)
+            const myLang = this.language === this.languageOptions[0] ? 'L1' : 'L2'
+            this.$store.commit('setPeerName', `${myLang}-${this.userName}`)
+            this.$emit('apikey-ok');
           })
         } else {
           console.log('login failed')

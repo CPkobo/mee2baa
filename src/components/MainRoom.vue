@@ -1,0 +1,283 @@
+<template>
+  <div class="container is-fluid">
+    <audio id="ip-voice" />
+    <div class="columns">
+      <div class="column is-1">
+        <video
+          id="mine"
+          class="sub"
+          controls
+          autoplay
+          playsinline
+          muted
+          :srcObject.prop="myStream"
+        />
+      </div>
+      <div v-for="rsd of remoteStreamIds" :key="rsd.peerId" class="column is-1">
+        <video
+          :id="rsd.peerId + '-vd'"
+          class="sub"
+          controls
+          autoplay
+          playsinline
+          :srcObject.prop="main.remoteStreams[rsd.streamId]"
+        />
+      </div>
+    </div>
+    <div class="columns">
+      <div class="column is-2">
+        <div class="card">
+          <div class="card-header">
+            <p class="card-header-title">
+              Speaker: {{ $store.state.peerName }}
+            </p>
+          </div>
+          <div class="card-content">
+            <ul>
+              <li>
+                <button class="button is-primary is-fullwidth" @click="raiseToSpeak">{{ speakBtn }}</button>
+              </li>
+              <li>
+                <button class="button is-warning is-fullwidth" @click="shareScreen">Share Screen</button>
+              </li>
+            </ul>
+            <pre>{{ speakStack.join('\n') }}</pre>
+          </div>
+        </div>
+      </div>
+      <div class="column is-10">
+        <h3 v-if="speakStack.length > 0">{{ speakStack[0] }} is speaking</h3>
+        <video
+          id="top"
+          class="top-video"
+          controls
+          autoplay
+          playsinline
+          :srcObject.prop="broadcasting === null ? mock : broadcasting"
+        />
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+
+const setVols = (myLang, allVol) => {
+  const myLangVol = allVol === undefined ? 1.0 : allVol
+  const anotherLangVol = allVol === undefined ? 0.1 : allVol
+  const videoEls = document.querySelectorAll('video')
+  const ipAudio = document.getElementById('ip-voice')
+  for (const videoEl of videoEls) {
+    if (videoEl.id === 'mine') {
+      ipAudio.volume = 0.0
+    } else if (videoEl.id.startsWith(myLang)) {
+      videoEl.volume = myLangVol
+      ipAudio.volume = 0.0
+    } else {
+      videoEl.volume = anotherLangVol
+      ipAudio.volume = 1.0
+    }
+  }
+}
+
+export default {
+  props: ['con'],
+  data () {
+    return {
+      speakBtn: 'Speak',
+      speakMode: 'watching',
+      speakStack: [],
+      myStream: null,
+      mock: null,
+      broadcasting: null,
+      main: null,
+      remoteStreamIds: [],
+      ip: null,
+      // ipStream: null
+    }
+  },
+  methods: {
+    raiseToSpeak () {
+      switch (this.speakMode) {
+        case 'watching':
+          this.bookSpeak()
+          break
+
+        case 'waiting':
+          this.withdrawSpeak()
+          break
+
+        case 'speaking':
+          this.speakMode = 'watching'
+          this.closeSpeak()
+          break
+      
+        default:
+          break;
+      }
+    },
+    startSpeak () {
+      // this.main.send('data', {
+      //   type: 'start-speak'
+      // })
+      this.speakMode = 'speaking'
+      this.speakBtn = 'End'
+      this.broadcasting = this.myStream
+      this.myStream.getAudioTracks()[0].enabled = true
+      document.getElementById('top').volume = 0
+    },
+    bookSpeak () {
+      this.main.send({
+        type: 'book-speak'
+      })
+      this.speakMode = 'waiting'
+      this.speakBtn = 'Please wait'
+      this.speakStack.push(this.$store.state.peerName)
+      if (this.speakStack.length === 1) {
+        this.startSpeak()
+      }
+    },
+    closeSpeak () {
+      this.main.send({
+        type: 'close-speak',
+      })
+      this.speakStack.shift(0)
+      this.speakMode = 'watching'
+      this.speakBtn = 'Speak'
+      this.myStream.getAudioTracks()[0].enabled = false
+      if (this.speakStack.length === 0) {
+        this.broadcasting = null
+      } else {
+        this.setBroadcastStream(this.speakStack[0])
+      }
+    },
+    withdrawSpeak() {
+      this.main.send({
+        type: 'withdraw-speak',
+      })
+      this.speakStack = this.speakStack.filter(val => {
+        return val !== this.$store.state.peerName
+      })
+      this.speakMode = 'watching'
+      this.speakBtn = 'Speak'
+    },
+    shareScreen() {
+      const self = this
+      navigator.mediaDevices.getDisplayMedia({ video: true, audio: true }).then( async scrStream => {
+        const combinedStream = new MediaStream(
+          [...scrStream.getTracks(), ...self.myStream.getAudioTracks()]
+        )
+        // 成功時にvideo要素にカメラ映像をセットし、再生
+        self.myStream = combinedStream
+        self.main.replaceStream(combinedStream)
+        scrStream.getVideoTracks()[0].onended = async () => {
+          self.myStream = await navigator.mediaDevices.getUserMedia(self.$store.state.avGetter);
+          self.main.replaceStream(self.myStream);
+          scrStream = null;
+        }
+      });
+    },
+    setBroadcastStream(peerId) {
+      for (const rsd of this.remoteStreamIds) {
+        if (rsd.peerId === peerId) {
+          this.broadcasting = this.main.remoteStreams[rsd.streamId]
+          if (rsd.lang !== this.$store.state.myLang) {
+            document.getElementById('top').volume = 0.1
+            document.getElementById('ip-voice').volume = 1.0
+          } else {
+            document.getElementById('top').volume = 1.0
+            document.getElementById('ip-voice').volume = 0.1
+          }
+          break
+        }
+      }
+    }
+  },
+  async created () {
+    const self = this
+    self.myStream = await navigator.mediaDevices.getUserMedia(this.$store.state.avGetter)
+    self.myStream.getAudioTracks()[0].enabled = false
+    self.main = self.con.joinRoom('main', {
+      mode: 'sfu',
+      stream: self.myStream,
+    })
+    self.main.on('peerJoin', peerId => {
+      console.log(peerId)
+    })
+    self.main.on('stream', stream => {
+      self.remoteStreamIds.push({
+        streamId: stream.id,
+        peerId: stream.peerId,
+        lang: stream.peerId.substr(0, 2)
+      })
+      self.$nextTick().then(() => {
+        setVols(this.$store.state.myLang)
+      })
+    })
+    self.main.on('peerLeave', peerId => {
+      self.remoteStreamIds = self.remoteStreamIds.filter(val => {
+        return val.peerId !== peerId
+      })
+    })
+    self.main.on('data', ({src, data}) => {
+      switch (data.type) {
+        case 'book-speak':
+          this.speakStack.push(src)
+          if (this.speakStack.length === 1) {
+            this.setBroadcastStream(src)
+          }
+          break
+
+        case 'close-speak':
+          this.speakStack.shift(0)
+          if (this.speakStack.length === 0) {
+            this.broadcasting = null
+          } else if (this.speakStack[0] === this.$store.state.peerName) {
+            this.startSpeak()
+          } else {
+            this.setBroadcastStream(this.speakStack[0])
+          }
+          break
+
+        case 'withdraw-speak':
+          this.speakStack = this.speakStack.filter(val => {
+            return val !== src
+          })
+          break
+      
+        default:
+          break
+      }
+    })
+    self.ip = self.con.joinRoom('ip', {
+      mode: 'sfu',
+      stream: null
+    })
+    self.ip.on('stream', stream => {
+      document.getElementById('ip-voice').srcObject = stream
+    })
+  },
+  mounted () {
+    const cv = document.createElement('canvas')
+    const cx = cv.getContext('2d')
+    cx.fillText('No image...', 0, 100)
+    this.mock = cv.captureStream(10);
+    console.log('mounted')
+  }
+}
+</script>
+
+<style scoped>
+  video.sub {
+    width: 2fr;
+    height: 2fr;
+  }
+
+  video.top-video {
+    height: 80vh;
+  }
+
+  audio#ip-voice {
+    visibility: hidden;
+  }
+</style>
