@@ -103,8 +103,8 @@ export default {
   },
   created () {
     const avGetter_ = {
-      video: false,
-      audio: false
+      audio: false,
+      video: false
     }
     navigator.mediaDevices.enumerateDevices().then((devs) => {
       for (const dev of devs) {
@@ -113,7 +113,20 @@ export default {
           avGetter_.audio = true
         } else if (dev.kind === 'videoinput') {
           this.foundVideoInput = 'OK'
-          avGetter_.video = true
+          avGetter_.video = {
+            width: {
+              min: 160,
+              max: 640
+            },
+            height: {
+              min: 120,
+              max: 480
+            },
+            frameRate: {
+              min: 5,
+              max: 15
+            }
+          }
         }
       }
       this.$store.commit('setAvGetter', avGetter_)

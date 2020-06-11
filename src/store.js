@@ -5,10 +5,11 @@ Vue.use(Vuex)
 
 export default new Vuex.Store({
   state: {
+    loginEndpoint: 'https://sheepy-meme.builtwithdark.com/meebaalogin',
     apiKey: '',
     avGetter: {
-      video: true,
-      audio: true
+      audio: true,
+      video: true
     },
     myLang: 'L1',
     peerName: ''

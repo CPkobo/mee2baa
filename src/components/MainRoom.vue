@@ -163,13 +163,21 @@ export default {
     },
     shareScreen() {
       const self = this
-      navigator.mediaDevices.getDisplayMedia({ video: true, audio: true }).then( async scrStream => {
+      navigator.mediaDevices.getDisplayMedia({
+        audio: true,
+        video: {
+          frameRate: 10
+        }  
+      }).then( async scrStream => {
         const combinedStream = new MediaStream(
           [...scrStream.getTracks(), ...self.myStream.getAudioTracks()]
         )
         // 成功時にvideo要素にカメラ映像をセットし、再生
         self.myStream = combinedStream
         self.main.replaceStream(combinedStream)
+        if (self.speakMode === 'speaking') {
+          document.getElementById('top').srcObject = combinedStream
+        }
         scrStream.getVideoTracks()[0].onended = async () => {
           self.myStream = await navigator.mediaDevices.getUserMedia(self.$store.state.avGetter);
           self.main.replaceStream(self.myStream);
