@@ -1,5 +1,5 @@
 module.exports = {
     outputDir: 'docs',
-    assetsDir: './',
-    publicPath: './'
+    assetsDir: './mee2baa/',
+    publicPath: './mee2baa/'
 }
