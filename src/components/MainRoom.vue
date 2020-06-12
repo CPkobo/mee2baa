@@ -303,12 +303,16 @@ export default {
   },
   async created () {
     const self = this
+    const cv = document.createElement('canvas')
+    const cx = cv.getContext('2d')
+    cx.fillText('No image...', 0, 100)
+    self.mock = cv.captureStream(1);
     self.myStream = await navigator.mediaDevices.getUserMedia(this.$store.state.avGetter)
-    self.myStream.getAudioTracks()[0].enabled = false
     self.main = self.con.joinRoom('main', {
       mode: 'sfu',
-      stream: self.myStream,
+      stream: self.myStream !== null ? self.myStream : self.mock,
     })
+    self.myStream.getAudioTracks()[0].enabled = false
     self.main.on('open', () => {
       if (self.main.members.length > 0) {
         self.main.send({
@@ -410,13 +414,6 @@ export default {
       ipAudio.play()
     })
   },
-  mounted () {
-    const cv = document.createElement('canvas')
-    const cx = cv.getContext('2d')
-    cx.fillText('No image...', 0, 100)
-    this.mock = cv.captureStream(1);
-    console.log('mounted')
-  }
 }
 </script>
 
@@ -430,7 +427,4 @@ export default {
     height: 80vh;
   }
 
-  /* audio#ip-voice {
-    visibility: hidden;
-  } */
 </style>

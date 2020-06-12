@@ -1,0 +1,4 @@
+room, test3
+key, hogehogefuga
+user, ishida, sugoi
+user, qiu, panda

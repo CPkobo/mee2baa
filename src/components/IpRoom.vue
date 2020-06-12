@@ -2,17 +2,6 @@
   <div class="container is-fluid">
     <audio id="ip-voice" muted/>
     <div class="columns is-gapless">
-      <!-- <div class="column is-1">
-        <video
-          id="mine"
-          class="sub"
-          controls
-          autoplay
-          playsinline
-          muted
-          :srcObject.prop="myStream"
-        />
-      </div> -->
       <div v-for="rsd of remoteStreamIds" :key="rsd.peerId" class="column is-1">
         <video
           :id="rsd.peerId + '-vd'"
@@ -34,7 +23,24 @@
             </p>
           </div>
           <div class="card-content">
-            <pre>{{ speakStack.join('\n') }}</pre>
+            <div class="columns is-gapless">
+              <div class="column is-half">
+                <ul>
+                  <li>
+                    <button class="button is-primary is-fullwidth" @click="raiseToSpeak">{{ speakBtn }}</button>
+                  </li>
+                  <li>
+                    <button class="button is-warning is-fullwidth" @click="shareScreen">Share Screen</button>
+                  </li>
+                  <li>
+                    <button class="button is-black is-fullwidth" @click="freeDiscussion">{{ discBtn }}</button>
+                  </li>
+                </ul>
+              </div>
+              <div class="column is-half">
+                <pre>{{ speakStack.join('\n') }}</pre>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -66,17 +72,14 @@ export default {
   props: ['con'],
   data () {
     return {
-      // speakBtn: 'Speak',
-      // discBtn: 'Free Discussion',
-      // speakMode: 'watching',
       speakStack: [],
       myStream: null,
       mock: null,
-      // broadcasting: null,
       main: null,
       remoteStreamIds: [],
       ip: null,
-      // ipStream: null
+      canHandle: false,
+      myTurn: false,
     }
   },
   methods: {
@@ -199,6 +202,13 @@ export default {
       mode: 'sfu',
       stream: self.myStream
     })
+    self.ip.on('open', () => {
+      if (self.ip.members.length > 0) {
+        self.canHandle = true
+      } else {
+        self.myTurn = true
+      }
+    })
     self.ip.on('stream', stream => {
       document.getElementById('ip-voice').srcObject = stream
     })
@@ -208,7 +218,6 @@ export default {
     const cx = cv.getContext('2d')
     cx.fillText('No image...', 0, 100)
     this.mock = cv.captureStream(1);
-    console.log('mounted')
   }
 }
 </script>
