@@ -40,6 +40,9 @@
               <li>
                 <button class="button is-warning is-fullwidth" @click="shareScreen">Share Screen</button>
               </li>
+              <li>
+                <button class="button is-black is-fullwidth" @click="freeDiscussion">{{ discBtn }}</button>
+              </li>
             </ul>
             <pre>{{ speakStack.join('\n') }}</pre>
           </div>
@@ -85,6 +88,7 @@ export default {
   data () {
     return {
       speakBtn: 'Speak',
+      discBtn: 'Free Discussion',
       speakMode: 'watching',
       speakStack: [],
       myStream: null,
@@ -99,6 +103,9 @@ export default {
   methods: {
     raiseToSpeak () {
       switch (this.speakMode) {
+        case 'discussion':
+          break
+
         case 'watching':
           this.bookSpeak()
           break
@@ -185,6 +192,40 @@ export default {
         }
       });
     },
+    freeDiscussion() {
+      if (this.speakMode === 'discussion') {
+        this.main.send({
+          type: 'close-discussion'
+        })
+        this.closeDiscussion()
+      } else {
+        this.main.send({
+          type: 'free-discussion'
+        })
+        this.startDiscussion()
+      }
+    },
+    startDiscussion() {
+      this.speakStack.unshift('Free Discussion')
+      this.speakMode = 'discussion'
+      this.discBtn = 'Close Discussion'
+      this.myStream.getAudioTracks()[0].enabled = true
+      setVols('all', 1.0)
+    },
+    closeDiscussion() {
+      this.speakStack.shift(0)
+      this.discBtn = 'Free Discussion'
+      this.myStream.getAudioTracks()[0].enabled = false
+      setVols('all', 0.0)
+      if (this.speakStack.length === 0) {
+        this.speakMode = 'watching'
+        this.broadcasting = null
+      } else if (this.speakStack[0] === this.$store.state.peerName) {
+        this.startSpeak()
+      } else {
+        this.setBroadcastStream(this.speakStack[0])
+      }
+    },
     setBroadcastStream(peerId) {
       for (const rsd of this.remoteStreamIds) {
         if (rsd.peerId === peerId) {
@@ -209,6 +250,14 @@ export default {
       mode: 'sfu',
       stream: self.myStream,
     })
+    self.main.on('open', () => {
+      if (self.main.members.length > 0) {
+        self.main.send({
+          type: 'ask-stack',
+          info: self.main.members[0]
+        })
+      }
+    })
     self.main.on('peerJoin', peerId => {
       console.log(peerId)
     })
@@ -226,9 +275,34 @@ export default {
       self.remoteStreamIds = self.remoteStreamIds.filter(val => {
         return val.peerId !== peerId
       })
+      if (peerId === this.speakStack[0]) {
+        this.speakStack.shift(0)
+        if (this.speakStack.length > 0) {
+          this.setBroadcastStream(this.speakStack[0])
+        } else {
+          this.broadcasting = null
+        }
+      } else {
+        this.speakStack = this.speakStack.filter(val => {
+          return val !== peerId
+        })
+      }
     })
     self.main.on('data', ({src, data}) => {
       switch (data.type) {
+        case 'ask-stack':
+          if (data.info === this.$store.state.peerName) {
+            self.main.send({
+              type: 'ans-stack',
+              info: self.speakStack
+            })
+          }
+          break
+
+        case 'ans-stack':
+          self.speakStack = data.info
+          break
+
         case 'book-speak':
           this.speakStack.push(src)
           if (this.speakStack.length === 1) {
@@ -251,6 +325,14 @@ export default {
           this.speakStack = this.speakStack.filter(val => {
             return val !== src
           })
+          break
+
+        case 'free-discussion':
+          this.startDiscussion()
+          break
+
+        case 'close-discussion':
+          this.closeDiscussion()
           break
       
         default:

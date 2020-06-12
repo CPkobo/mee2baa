@@ -12,6 +12,14 @@ export default new Vuex.Store({
       video: true
     },
     myLang: 'L1',
+    langDisp: {
+      L1: 'Japanese',
+      L2: 'Chinese',
+    },
+    langDispShort: {
+      L1: 'Jp.',
+      L2: 'Cn.',
+    },
     peerName: ''
   },
   mutations: {

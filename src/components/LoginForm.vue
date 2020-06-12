@@ -52,7 +52,7 @@
             v-model="language"
             class="select"
           >
-            <option v-for="lang in languageOptions" :key="lang">
+            <option v-for="lang in $store.state.langDisp" :key="lang">
               {{ lang }}
             </option>
           </select>
@@ -62,14 +62,16 @@
         Microphone: {{ foundAudioInput }} / Camera: {{ foundVideoInput }}
       </p>
       <div class="is-horizontal has-text-centered">
-        <button class="button is-info" :disabled="canOpen" @click.prevent.stop="getApiKey">
+        <button class="button is-info is-small is-fullwidth" :disabled="canOpen" @click.prevent.stop="getApiKey(langVal)">
           {{ buttonDisp }}
         </button>
-        <button class="button is-success" @click.prevent.stop="superEnter">
-          {{ buttonDisp }}
-        </button>
-        <button class="button is-success" @click.prevent.stop="ipEnter">
+        <button class="button is-success is-small is-fullwidth" @click.prevent.stop="getApiKey('IP')">
           Im an interpreter
+        </button>
+        <input v-model="devCode" type="password">
+        <hr />
+        <button class="button is-warning is-small is-fullwidth" @click.prevent.stop="superEnter">
+          Im a developer
         </button>
       </div>
     </div>
@@ -89,16 +91,16 @@ export default {
   data () {
     return {
       result: 'Please input your meeting-ID, name and password for login',
-      meetingID: '',
+      meetingID: 'test2',
       userName: '',
       password: '',
       language: 'Japanese',
-      languageOptions: ['Japanese', 'Chinese'],
       foundAudioInput: 'None',
       foundVideoInput: 'None',
       canOpen: true,
       canStart: true,
-      buttonDisp: 'OPEN'
+      buttonDisp: 'OPEN',
+      devCode: ''
     }
   },
   created () {
@@ -149,17 +151,24 @@ export default {
       }
     })
   },
+  computed: {
+    langVal() {
+      return this.language === this.$store.state.langDisp.L1 ? 'L1' : 'L2'
+    }
+  },
   methods: {
     superEnter () {
-      const myLang = this.language === this.languageOptions[0] ? 'L1' : 'L2'
-      this.$store.commit('setPeerName', `${myLang}-${this.userName}`)
+      // const myLang = this.language === this.$store.state.langDisp[0] ? 'L1' : 'L2'
+      const randname = Math.randon().toString(36).substring(2)
+      this.$store.commit('setApiKey', this.devCode)
+      this.$store.commit('setPeerName', `dev-${randname}`)
       this.$emit('apikey-ok');
     },
     ipEnter () {
       this.$store.commit('setPeerName', `IP-${this.userName}`)
       this.$emit('apikey-ok');
     },
-    getApiKey () {
+    getApiKey (roleLang) {
       const self = this
       const data = {
         name: self.meetingID,
@@ -178,8 +187,7 @@ export default {
           self.buttonDisp = ' Please wait...'
           res.text().then((t) => {
             self.$store.commit('setApiKey', t)
-            const myLang = this.language === this.languageOptions[0] ? 'L1' : 'L2'
-            this.$store.commit('setPeerName', `${myLang}-${this.userName}`)
+            this.$store.commit('setPeerName', `${roleLang}-${this.userName}`)
             this.$emit('apikey-ok');
           })
         } else {
