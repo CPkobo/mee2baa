@@ -68,8 +68,8 @@
         <button class="button is-success is-small is-fullwidth" @click.prevent.stop="getApiKey('IP')">
           Im an interpreter
         </button>
-        <input v-model="devCode" type="password">
         <hr />
+        <input v-model="devCode" type="password">
         <button class="button is-warning is-small is-fullwidth" @click.prevent.stop="superEnter">
           Im a developer
         </button>
@@ -159,7 +159,7 @@ export default {
   methods: {
     superEnter () {
       // const myLang = this.language === this.$store.state.langDisp[0] ? 'L1' : 'L2'
-      const randname = Math.randon().toString(36).substring(2)
+      const randname = Math.random().toString(36).substring(2)
       this.$store.commit('setApiKey', this.devCode)
       this.$store.commit('setPeerName', `dev-${randname}`)
       this.$emit('apikey-ok');

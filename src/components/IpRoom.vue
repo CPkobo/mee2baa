@@ -58,7 +58,7 @@
 const setVols = (allVol) => {
   const videoEls = document.querySelectorAll('video')
   for (const videoEl of videoEls) {
-    videoEl.volume = 1.0
+    videoEl.volume = allVol
   }
 }
 
@@ -80,121 +80,12 @@ export default {
     }
   },
   methods: {
-    // raiseToSpeak () {
-    //   switch (this.speakMode) {
-    //     case 'discussion':
-    //       break
-
-    //     case 'watching':
-    //       this.bookSpeak()
-    //       break
-
-    //     case 'waiting':
-    //       this.withdrawSpeak()
-    //       break
-
-    //     case 'speaking':
-    //       this.speakMode = 'watching'
-    //       this.closeSpeak()
-    //       break
-      
-    //     default:
-    //       break;
-    //   }
-    // },
-    // startSpeak () {
-      // this.main.send('data', {
-      //   type: 'start-speak'
-      // })
-      // this.speakMode = 'speaking'
-      // this.speakBtn = 'End'
-      // this.broadcasting = this.myStream
-      // this.myStream.getAudioTracks()[0].enabled = true
-      // document.getElementById('top').volume = 0
-    // },
-    // bookSpeak () {
-    //   this.main.send({
-    //     type: 'book-speak'
-    //   })
-    //   this.speakMode = 'waiting'
-    //   this.speakBtn = 'Please wait'
-    //   this.speakStack.push(this.$store.state.peerName)
-    //   if (this.speakStack.length === 1) {
-    //     this.startSpeak()
-    //   }
-    // },
-    // closeSpeak () {
-    //   this.main.send({
-    //     type: 'close-speak',
-    //   })
-    //   this.speakStack.shift(0)
-    //   this.speakMode = 'watching'
-    //   this.speakBtn = 'Speak'
-    //   this.myStream.getAudioTracks()[0].enabled = false
-    //   if (this.speakStack.length === 0) {
-    //     this.broadcasting = null
-    //   } else {
-    //     this.setBroadcastStream(this.speakStack[0])
-    //   }
-    // },
-    // withdrawSpeak() {
-    //   this.main.send({
-    //     type: 'withdraw-speak',
-    //   })
-    //   this.speakStack = this.speakStack.filter(val => {
-    //     return val !== this.$store.state.peerName
-    //   })
-    //   this.speakMode = 'watching'
-    //   this.speakBtn = 'Speak'
-    // },
-    // shareScreen() {
-    //   const self = this
-    //   navigator.mediaDevices.getDisplayMedia({
-    //     audio: true,
-    //     video: {
-    //       frameRate: 10
-    //     }  
-    //   }).then( async scrStream => {
-    //     const combinedStream = new MediaStream(
-    //       [...scrStream.getTracks(), ...self.myStream.getAudioTracks()]
-    //     )
-    //     // 成功時にvideo要素にカメラ映像をセットし、再生
-    //     self.myStream = combinedStream
-    //     self.main.replaceStream(combinedStream)
-    //     if (self.speakMode === 'speaking') {
-    //       document.getElementById('top').srcObject = combinedStream
-    //     }
-    //     scrStream.getVideoTracks()[0].onended = async () => {
-    //       self.myStream = await navigator.mediaDevices.getUserMedia(self.$store.state.avGetter);
-    //       self.main.replaceStream(self.myStream);
-    //       scrStream = null;
-    //     }
-    //   });
-    // },
-    // freeDiscussion() {
-    //   if (this.speakMode === 'discussion') {
-    //     this.main.send({
-    //       type: 'close-discussion'
-    //     })
-    //     this.closeDiscussion()
-    //   } else {
-    //     this.main.send({
-    //       type: 'free-discussion'
-    //     })
-    //     this.startDiscussion()
-    //   }
-    // },
     startDiscussion() {
       this.speakStack.unshift('Free Discussion')
-      // this.speakMode = 'discussion'
-      // this.discBtn = 'Close Discussion'
-      // this.myStream.getAudioTracks()[0].enabled = true
       setVols(1.0)
     },
     closeDiscussion() {
       this.speakStack.shift(0)
-      // this.discBtn = 'Free Discussion'
-      // this.myStream.getAudioTracks()[0].enabled = false
       setVols(0.0)
       if (this.speakStack.length === 0) {
         this.broadcasting = null
@@ -206,13 +97,6 @@ export default {
       for (const rsd of this.remoteStreamIds) {
         if (rsd.peerId === peerId) {
           this.broadcasting = this.main.remoteStreams[rsd.streamId]
-          // if (rsd.lang !== this.$store.state.myLang) {
-          //   document.getElementById('top').volume = 0.1
-          //   document.getElementById('ip-voice').volume = 1.0
-          // } else {
-          //   document.getElementById('top').volume = 1.0
-          //   document.getElementById('ip-voice').volume = 0.1
-          // }
           break
         }
       }
@@ -221,7 +105,6 @@ export default {
   async created () {
     const self = this
     self.myStream = await navigator.mediaDevices.getUserMedia({video: false, audio: true})
-    // self.myStream.getAudioTracks()[0].enabled = false
     self.main = self.con.joinRoom('main', {
       mode: 'sfu',
       stream: null,
@@ -243,9 +126,6 @@ export default {
         peerId: stream.peerId,
         lang: stream.peerId.substr(0, 2)
       })
-      // self.$nextTick().then(() => {
-      //   setVols(this.$store.state.myLang)
-      // })
     })
     self.main.on('peerLeave', peerId => {
       self.remoteStreamIds = self.remoteStreamIds.filter(val => {
@@ -287,7 +167,9 @@ export default {
           break
 
         case 'close-speak':
-          this.speakStack.shift(0)
+          this.speakStack = this.speakStack.filter(val => {
+            return val !== src
+          })
           if (this.speakStack.length === 0) {
             this.broadcasting = null
           } else {
@@ -325,7 +207,7 @@ export default {
     const cv = document.createElement('canvas')
     const cx = cv.getContext('2d')
     cx.fillText('No image...', 0, 100)
-    this.mock = cv.captureStream(10);
+    this.mock = cv.captureStream(1);
     console.log('mounted')
   }
 }

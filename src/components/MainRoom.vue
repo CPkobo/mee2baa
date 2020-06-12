@@ -1,6 +1,5 @@
 <template>
   <div class="container is-fluid">
-    <audio id="ip-voice" />
     <div class="columns">
       <div class="column is-1">
         <video
@@ -33,18 +32,28 @@
             </p>
           </div>
           <div class="card-content">
-            <ul>
-              <li>
-                <button class="button is-primary is-fullwidth" @click="raiseToSpeak">{{ speakBtn }}</button>
-              </li>
-              <li>
-                <button class="button is-warning is-fullwidth" @click="shareScreen">Share Screen</button>
-              </li>
-              <li>
-                <button class="button is-black is-fullwidth" @click="freeDiscussion">{{ discBtn }}</button>
-              </li>
-            </ul>
-            <pre>{{ speakStack.join('\n') }}</pre>
+            <div class="columns">
+              <div class="column is-half">
+                <ul>
+                  <li>
+                    <button class="button is-primary is-fullwidth" @click="raiseToSpeak">{{ speakBtn }}</button>
+                  </li>
+                  <li>
+                    <button class="button is-warning is-fullwidth" @click="shareScreen">Share Screen</button>
+                  </li>
+                  <li>
+                    <button class="button is-black is-fullwidth" @click="freeDiscussion">{{ discBtn }}</button>
+                  </li>
+                </ul>
+              </div>
+              <div class="column is-half">
+                <pre>{{ speakStack.join('\n') }}</pre>
+              </div>
+            </div>
+          </div>
+          <div class="card-footer">
+            <h3>{{ ipStatus }}</h3>
+            <audio id="ip-voice" controls></audio>
           </div>
         </div>
       </div>
@@ -73,12 +82,15 @@ const setVols = (myLang, allVol) => {
   for (const videoEl of videoEls) {
     if (videoEl.id === 'mine') {
       ipAudio.volume = 0.0
+      ipAudio.pause()
     } else if (videoEl.id.startsWith(myLang)) {
       videoEl.volume = myLangVol
       ipAudio.volume = 0.0
+      ipAudio.pause()
     } else {
       videoEl.volume = anotherLangVol
       ipAudio.volume = 1.0
+      ipAudio.play()
     }
   }
 }
@@ -88,7 +100,7 @@ export default {
   data () {
     return {
       speakBtn: 'Speak',
-      discBtn: 'Free Discussion',
+      discBtn: 'Free Disc.',
       speakMode: 'watching',
       speakStack: [],
       myStream: null,
@@ -100,10 +112,40 @@ export default {
       // ipStream: null
     }
   },
+  computed: {
+    ipStatus() {
+      let status = 'No Ip.'
+      if (this.ip !== null) {
+        for (const iid of this.ip.members) {
+          if (iid.startsWith('IP')) {
+            status = 'Ip. OK'
+            break
+          }
+        }
+      }
+      return status
+    }
+  },
   methods: {
     raiseToSpeak () {
       switch (this.speakMode) {
         case 'discussion':
+          switch (this.speakBtn) {
+            case 'Speak':
+              this.bookSpeak()
+              break
+            
+            case 'Please wait':
+              this.withdrawSpeak()  
+              break
+
+            case 'End':
+              this.closeSpeak()
+              break
+          
+            default:
+              break;
+          }
           break
 
         case 'watching':
@@ -132,12 +174,16 @@ export default {
       this.broadcasting = this.myStream
       this.myStream.getAudioTracks()[0].enabled = true
       document.getElementById('top').volume = 0
+      document.getElementById('ip-voice').volume = 0
+      document.getElementById('ip-voice').pause()
     },
     bookSpeak () {
       this.main.send({
         type: 'book-speak'
       })
-      this.speakMode = 'waiting'
+      if (this.speakMode !== 'discussion') {
+        this.speakMode = 'waiting'
+      }
       this.speakBtn = 'Please wait'
       this.speakStack.push(this.$store.state.peerName)
       if (this.speakStack.length === 1) {
@@ -148,8 +194,12 @@ export default {
       this.main.send({
         type: 'close-speak',
       })
-      this.speakStack.shift(0)
-      this.speakMode = 'watching'
+      this.speakStack = this.speakStack.filter(val => {
+        return val !== this.$store.state.peerName
+      })
+      if (this.speakMode !== 'discussion') {
+        this.speakMode = 'watching'
+      }
       this.speakBtn = 'Speak'
       this.myStream.getAudioTracks()[0].enabled = false
       if (this.speakStack.length === 0) {
@@ -165,7 +215,9 @@ export default {
       this.speakStack = this.speakStack.filter(val => {
         return val !== this.$store.state.peerName
       })
-      this.speakMode = 'watching'
+      if (this.speakMode !== 'discussion') {
+        this.speakMode = 'watching'
+      }
       this.speakBtn = 'Speak'
     },
     shareScreen() {
@@ -206,15 +258,16 @@ export default {
       }
     },
     startDiscussion() {
-      this.speakStack.unshift('Free Discussion')
+      this.broadcasting = null
+      this.speakStack.unshift('Free Disc.')
       this.speakMode = 'discussion'
-      this.discBtn = 'Close Discussion'
+      this.discBtn = 'Close Disc.'
       this.myStream.getAudioTracks()[0].enabled = true
       setVols('all', 1.0)
     },
     closeDiscussion() {
       this.speakStack.shift(0)
-      this.discBtn = 'Free Discussion'
+      this.discBtn = 'Free Disc.'
       this.myStream.getAudioTracks()[0].enabled = false
       setVols('all', 0.0)
       if (this.speakStack.length === 0) {
@@ -224,6 +277,11 @@ export default {
         this.startSpeak()
       } else {
         this.setBroadcastStream(this.speakStack[0])
+        if (this.speakBtn === 'Please wait') {
+          this.speakMode = 'waiting'
+        } else {
+          this.speakMode = 'watching'
+        }
       }
     },
     setBroadcastStream(peerId) {
@@ -311,7 +369,9 @@ export default {
           break
 
         case 'close-speak':
-          this.speakStack.shift(0)
+          this.speakStack = this.speakStack.filter(val => {
+            return val !== src
+          })
           if (this.speakStack.length === 0) {
             this.broadcasting = null
           } else if (this.speakStack[0] === this.$store.state.peerName) {
@@ -344,14 +404,16 @@ export default {
       stream: null
     })
     self.ip.on('stream', stream => {
-      document.getElementById('ip-voice').srcObject = stream
+      const ipAudio = document.getElementById('ip-voice')
+      ipAudio.srcObject = stream
+      ipAudio.play()
     })
   },
   mounted () {
     const cv = document.createElement('canvas')
     const cx = cv.getContext('2d')
     cx.fillText('No image...', 0, 100)
-    this.mock = cv.captureStream(10);
+    this.mock = cv.captureStream(1);
     console.log('mounted')
   }
 }
@@ -367,7 +429,7 @@ export default {
     height: 80vh;
   }
 
-  audio#ip-voice {
+  /* audio#ip-voice {
     visibility: hidden;
-  }
+  } */
 </style>
