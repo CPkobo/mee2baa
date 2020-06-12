@@ -1,7 +1,7 @@
 <template>
   <div class="container is-fluid">
     <audio id="ip-voice" muted/>
-    <div class="columns">
+    <div class="columns is-gapless">
       <!-- <div class="column is-1">
         <video
           id="mine"

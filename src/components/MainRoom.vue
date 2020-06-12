@@ -1,6 +1,6 @@
 <template>
   <div class="container is-fluid">
-    <div class="columns">
+    <div class="columns is-gapless">
       <div class="column is-1">
         <video
           id="mine"
@@ -32,7 +32,7 @@
             </p>
           </div>
           <div class="card-content">
-            <div class="columns">
+            <div class="columns is-gapless">
               <div class="column is-half">
                 <ul>
                   <li>
@@ -239,7 +239,8 @@ export default {
         }
         scrStream.getVideoTracks()[0].onended = async () => {
           self.myStream = await navigator.mediaDevices.getUserMedia(self.$store.state.avGetter);
-          self.main.replaceStream(self.myStream);
+          document.getElementById('top').srcObject = self.myStream
+          self.main.replaceStream(self.myStream)
           scrStream = null;
         }
       });
