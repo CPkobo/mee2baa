@@ -4,9 +4,6 @@
       <h1 class="title">
         MEE to BAA Meet
       </h1>
-      <!-- <h2 class="subtitle">
-        <slot>INDEX</slot>
-      </h2> -->
     </div>
   </section>
 </template>
